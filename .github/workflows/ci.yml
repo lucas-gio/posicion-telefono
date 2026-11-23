@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      # The wrapper jar is executable code from the repo: check it against Gradle's published checksum.
+      - name: Verify Gradle wrapper
+        run: |
+          v=$(sed -n 's/^distributionUrl=.*gradle-\(.*\)-bin\.zip$/\1/p' gradle/wrapper/gradle-wrapper.properties)
+          echo "$(curl -fsSL "https://services.gradle.org/distributions/gradle-$v-wrapper.jar.sha256")  gradle/wrapper/gradle-wrapper.jar" | sha256sum -c -
+
+      - name: Unit tests, lint and debug build
+        run: ./gradlew --no-daemon testDebugUnitTest lintDebug assembleDebug
