@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Posición Teléfono</string>
+
+    <string name="start">Iniciar registro</string>
+    <string name="stop">Detener</string>
+    <string name="idle">Detenido</string>
+    <string name="idle_hint">Se guarda un punto cada 10 segundos, aunque la pantalla esté apagada.</string>
+    <string name="recording">● Registrando</string>
+    <string name="waiting_fix">Puntos guardados: %1$d\nBuscando satélites… (al aire libre tarda menos)</string>
+    <string name="fix_status">Puntos guardados: %1$d\nÚltimo fix hace %2$d s · ±%3$.0f m\n%4$.6f, %5$.6f</string>
+    <string name="location_off">⚠ La ubicación del teléfono está apagada.</string>
+
+    <string name="battery_hint">Para que Android no corte el registro, dejá que la app use la batería sin restricciones.</string>
+    <string name="allow">Permitir</string>
+
+    <string name="tracks">Recorridos (mantené apretado para exportar o borrar)</string>
+    <string name="no_tracks">Todavía no hay recorridos.</string>
+    <string name="summary">%2$.2f km · %3$d:%4$02d h · puntos: %1$d</string>
+    <string name="recording_now">● grabando ahora</string>
+    <string name="empty_track">Este recorrido no tiene puntos.</string>
+
+    <string name="export">Guardar CSV y GPX en Descargas</string>
+    <string name="exported">Guardado en Descargas/PosicionTelefono</string>
+    <string name="export_failed">No se pudo exportar.</string>
+    <string name="delete">Borrar</string>
+    <string name="delete_confirm">¿Borrar este recorrido? No se puede deshacer.</string>
+    <string name="delete_failed">No se pudo borrar.</string>
+    <string name="cancel">Cancelar</string>
+
+    <string name="need_precise">Para saber por qué calles anduviste hace falta la ubicación PRECISA. En Permisos → Ubicación elegí «Permitir solo mientras se usa la app» y activá «Usar ubicación precisa».</string>
+    <string name="enable_location">Activá la ubicación del teléfono para usar el GPS.</string>
+    <string name="open_settings">Abrir ajustes</string>
+
+    <string name="map_summary">%2$.2f km · puntos: %1$d\nAzul ≤10 m · naranja ≤25 m · rojo: GPS impreciso. Tocá un punto para ver la hora.</string>
+    <string name="point_info">%1$s · precisión ±%2$s m · %3$s km/h</string>
+
+    <string name="notif_channel">Registro de recorrido</string>
+    <string name="notif_title">Registrando recorrido</string>
+    <string name="notif_text">Tocá para ver el estado</string>
+</resources>

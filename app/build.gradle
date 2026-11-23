@@ -1,0 +1,56 @@
+plugins {
+    id 'com.android.application'
+}
+
+// Release signing key lives in firma/ (git-ignored). Without it, release falls back to the debug key.
+def signingProps = new Properties()
+def signingFile = rootProject.file('firma/keystore.properties')
+if (signingFile.exists()) signingFile.withInputStream { signingProps.load(it) }
+
+android {
+    namespace = 'com.posiciontelefono'
+    compileSdk = 36
+
+    defaultConfig {
+        applicationId = 'com.posiciontelefono'
+        minSdk = 31 // Android 12, what the Moto G52 ships with
+        targetSdk = 36
+        versionCode = 1
+        versionName = '1.0'
+    }
+
+    signingConfigs {
+        if (signingFile.exists()) {
+            release {
+                storeFile = rootProject.file(signingProps['storeFile'])
+                storePassword = signingProps['storePassword']
+                keyAlias = signingProps['keyAlias']
+                keyPassword = signingProps['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled = true
+            shrinkResources = true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt')
+            signingConfig = signingFile.exists() ? signingConfigs.release : signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_17
+        targetCompatibility = JavaVersion.VERSION_17
+    }
+
+    lint {
+        abortOnError = true
+        checkReleaseBuilds = true
+    }
+}
+
+dependencies {
+    // The app itself has no dependencies; JUnit is only used by the unit tests.
+    testImplementation 'junit:junit:4.13.2'
+}
