@@ -91,7 +91,8 @@ public final class TrackMapView extends View {
         });
     }
 
-    public void setTrack(List<TrackPoint> track) {
+    /** Shows a track; fit = move the camera to show all of it (false keeps the user's view, for live updates). */
+    public void setTrack(List<TrackPoint> track, boolean fit) {
         int n = track.size();
         points = track;
         xs = new double[n];
@@ -108,9 +109,11 @@ public final class TrackMapView extends View {
             }
         }
         for (int q = 0; q < 3; q++) segments[q] = new float[perQuality[q] * 4];
-        selected = -1;
-        needsFit = true;
-        if (getWidth() > 0) fit();
+        if (selected >= n) selected = -1;
+        if (fit) {
+            needsFit = true;
+            if (getWidth() > 0) fit();
+        }
         invalidate();
     }
 

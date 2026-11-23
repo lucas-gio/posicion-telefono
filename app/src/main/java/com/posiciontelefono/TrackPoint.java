@@ -44,8 +44,12 @@ public final class TrackPoint {
         }
     }
 
-    /** 0 = good (up to 10 m), 1 = fair (up to 25 m), 2 = poor or unknown. */
     public int quality() {
+        return quality(accuracyM);
+    }
+
+    /** 0 = good (up to 10 m), 1 = fair (up to 25 m), 2 = poor or unknown. */
+    public static int quality(float accuracyM) {
         return accuracyM <= 10 ? 0 : accuracyM <= 25 ? 1 : 2; // NaN compares false: poor
     }
 

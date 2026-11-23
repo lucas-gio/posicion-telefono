@@ -2,10 +2,16 @@ package com.posiciontelefono;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.NotificationManager;
+import android.app.StatusBarManager;
+import android.content.ComponentName;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.graphics.drawable.Icon;
 import android.location.Location;
 import android.location.LocationManager;
 import android.net.Uri;
@@ -16,16 +22,15 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.os.SystemClock;
 import android.provider.Settings;
+import android.text.TextUtils;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import java.io.File;
-import java.io.IOException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,7 +39,11 @@ import java.util.concurrent.Executors;
 
 public final class MainActivity extends Activity {
 
+    /** Set by the Quick Settings tile: start recording as soon as the app opens. */
+    static final String EXTRA_START = "start";
     private static final int PERMISSIONS_REQUEST = 1;
+    private static final String PREF_TILE_ADDED = "tile_added";
+    private static final int[] QUALITY_COLORS = {R.color.quality_good, R.color.quality_fair, R.color.quality_poor};
     /** Summaries by "name:size", so unchanged tracks are not re-read on every resume. */
     private static final Map<String, String> SUMMARIES = new ConcurrentHashMap<>();
 
@@ -48,50 +57,80 @@ public final class MainActivity extends Activity {
         }
     };
 
-    private TextView status, detail;
+    private TextView state, timer, stats, gps, hint, empty;
     private Button toggle;
-    private View battery;
+    private View addTile, rowPermission, rowLocation, rowNotifications, rowBattery;
     private ArrayAdapter<File> adapter;
-    private boolean wasRecording;
+    private Boolean rendered; // recording state currently on screen; null before the first render
+    private boolean startWhenAllowed;
 
     @Override
-    protected void onCreate(Bundle state) {
-        super.onCreate(state);
+    protected void onCreate(Bundle saved) {
+        super.onCreate(saved);
         setContentView(R.layout.activity_main);
-        status = findViewById(R.id.status);
-        detail = findViewById(R.id.detail);
-        toggle = findViewById(R.id.toggle);
-        battery = findViewById(R.id.battery);
-        toggle.setOnClickListener(v -> toggle(true));
-        findViewById(R.id.battery_allow).setOnClickListener(v -> askUnrestrictedBattery());
+        ListView list = findViewById(R.id.list);
+        View header = getLayoutInflater().inflate(R.layout.main_header, list, false);
+        list.addHeaderView(header, null, false);
+
+        state = header.findViewById(R.id.state);
+        timer = header.findViewById(R.id.timer);
+        stats = header.findViewById(R.id.stats);
+        gps = header.findViewById(R.id.gps);
+        hint = header.findViewById(R.id.hint);
+        empty = header.findViewById(R.id.empty);
+        toggle = header.findViewById(R.id.toggle);
+        toggle.setOnClickListener(v -> onToggle());
+
+        rowPermission = problem(header, R.id.row_permission, R.string.problem_permission, R.string.fix_permission,
+                this::askLocationPermission);
+        rowLocation = problem(header, R.id.row_location, R.string.problem_location_off, R.string.fix_turn_on,
+                () -> startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)));
+        rowNotifications = problem(header, R.id.row_notifications, R.string.problem_notifications, R.string.fix_turn_on,
+                () -> startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName())));
+        rowBattery = problem(header, R.id.row_battery, R.string.problem_battery, R.string.fix_allow,
+                this::askUnrestrictedBattery);
+
+        addTile = header.findViewById(R.id.add_tile);
+        if (Build.VERSION.SDK_INT >= 33 && !prefs().getBoolean(PREF_TILE_ADDED, false)) {
+            addTile.setVisibility(View.VISIBLE);
+            addTile.setOnClickListener(v -> askToAddTile());
+        }
 
         adapter = new ArrayAdapter<File>(this, R.layout.item_track, R.id.title) {
             @Override
             public View getView(int position, View convertView, ViewGroup parent) {
                 View v = super.getView(position, convertView, parent);
                 File f = getItem(position);
-                ((TextView) v.findViewById(R.id.title)).setText(Track.title(f.getName()));
+                ((TextView) v.findViewById(R.id.title)).setText(Format.trackTitle(f.getName()));
                 String summary = f.equals(RecorderService.currentFile)
                         ? getString(R.string.recording_now) : SUMMARIES.get(key(f));
                 ((TextView) v.findViewById(R.id.summary)).setText(summary != null ? summary : "…");
                 return v;
             }
         };
-        ListView list = findViewById(R.id.list);
-        list.setEmptyView(findViewById(R.id.empty));
         list.setAdapter(adapter);
-        list.setOnItemClickListener((p, v, i, id) -> openMap(adapter.getItem(i)));
-        list.setOnItemLongClickListener((p, v, i, id) -> {
-            showOptions(adapter.getItem(i));
-            return true;
+        list.setOnItemClickListener((parent, v, position, id) -> {
+            Object item = parent.getItemAtPosition(position); // accounts for the header
+            if (item instanceof File) openMap((File) item);
         });
+        if (saved == null) startIfAsked(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        startIfAsked(intent);
+    }
+
+    private void startIfAsked(Intent intent) {
+        if (intent.getBooleanExtra(EXTRA_START, false) && !RecorderService.recording) onToggle();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
-        boolean unrestricted = getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName());
-        battery.setVisibility(unrestricted ? View.GONE : View.VISIBLE);
+        checkProblems();
         reloadList();
         main.post(tick);
     }
@@ -109,80 +148,120 @@ public final class MainActivity extends Activity {
         io.shutdownNow();
     }
 
+    // ---------- start / finish ----------
+
+    private void onToggle() {
+        if (RecorderService.recording) {
+            RecorderService.stop(this);
+        } else if (!hasPreciseLocation()) {
+            startWhenAllowed = true;
+            askLocationPermission();
+            return;
+        } else if (!locationEnabled()) {
+            startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
+            return;
+        } else {
+            RecorderService.start(this);
+        }
+        main.postDelayed(this::render, 300);
+    }
+
+    private void askLocationPermission() {
+        requestPermissions(Build.VERSION.SDK_INT >= 33
+                ? new String[] {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.POST_NOTIFICATIONS}
+                : new String[] {Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION},
+                PERMISSIONS_REQUEST);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
+        if (code != PERMISSIONS_REQUEST) return;
+        boolean start = startWhenAllowed;
+        startWhenAllowed = false;
+        checkProblems();
+        if (hasPreciseLocation()) {
+            if (start) onToggle();
+        } else if (!shouldShowRequestPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
+            // Android will not ask again: only the settings screen can grant it now.
+            new AlertDialog.Builder(this)
+                    .setMessage(R.string.need_precise)
+                    .setPositiveButton(R.string.open_settings, (d, w) -> startActivity(new Intent(
+                            Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))))
+                    .setNegativeButton(R.string.cancel, null)
+                    .show();
+        }
+    }
+
     @SuppressLint("BatteryLife") // a GPS logger is an accepted use case, and the APK is sideloaded
     private void askUnrestrictedBattery() {
         startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
                 Uri.parse("package:" + getPackageName())));
     }
 
-    private void toggle(boolean mayAskPermissions) {
-        if (RecorderService.recording) {
-            startService(new Intent(this, RecorderService.class).setAction(RecorderService.ACTION_STOP));
-            main.postDelayed(this::reloadList, 300);
-            return;
-        }
-        if (checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            if (mayAskPermissions) {
-                String[] wanted = Build.VERSION.SDK_INT >= 33
-                        ? new String[] {Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION, Manifest.permission.POST_NOTIFICATIONS}
-                        : new String[] {Manifest.permission.ACCESS_FINE_LOCATION,
-                                Manifest.permission.ACCESS_COARSE_LOCATION};
-                requestPermissions(wanted, PERMISSIONS_REQUEST);
-            } else {
-                explain(R.string.need_precise, new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
-                        Uri.parse("package:" + getPackageName())));
-            }
-            return;
-        }
-        if (!getSystemService(LocationManager.class).isLocationEnabled()) {
-            explain(R.string.enable_location, new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS));
-            return;
-        }
-        startForegroundService(new Intent(this, RecorderService.class).setAction(RecorderService.ACTION_START));
-        main.postDelayed(this::reloadList, 300);
+    @TargetApi(33)
+    private void askToAddTile() {
+        getSystemService(StatusBarManager.class).requestAddTileService(
+                new ComponentName(this, RecordTileService.class), getString(R.string.tile_label),
+                Icon.createWithResource(this, R.drawable.ic_notification), getMainExecutor(), result -> {
+                    if (result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ADDED
+                            || result == StatusBarManager.TILE_ADD_REQUEST_RESULT_TILE_ALREADY_ADDED) {
+                        prefs().edit().putBoolean(PREF_TILE_ADDED, true).apply();
+                        addTile.setVisibility(View.GONE);
+                    }
+                });
     }
 
-    @Override
-    public void onRequestPermissionsResult(int code, String[] permissions, int[] results) {
-        if (code == PERMISSIONS_REQUEST) toggle(false);
+    // ---------- state ----------
+
+    private boolean hasPreciseLocation() {
+        return checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED;
     }
 
-    private void explain(int message, Intent settings) {
-        new AlertDialog.Builder(this)
-                .setMessage(message)
-                .setPositiveButton(R.string.open_settings, (d, w) -> startActivity(settings))
-                .setNegativeButton(R.string.cancel, null)
-                .show();
+    private boolean locationEnabled() {
+        return getSystemService(LocationManager.class).isLocationEnabled();
     }
 
+    /** Settings that only change outside the app, so checking them on resume is enough. */
+    private void checkProblems() {
+        show(rowPermission, !hasPreciseLocation());
+        show(rowNotifications, !getSystemService(NotificationManager.class).areNotificationsEnabled());
+        show(rowBattery, !getSystemService(PowerManager.class).isIgnoringBatteryOptimizations(getPackageName()));
+    }
+
+    /** Runs every second, so it only touches views whose content actually changed. */
     private void render() {
         boolean rec = RecorderService.recording;
-        toggle.setText(rec ? R.string.stop : R.string.start);
-        toggle.setBackgroundTintList(getColorStateList(rec ? R.color.stop : R.color.start));
-        status.setText(rec ? R.string.recording : R.string.idle);
-        Location fix = RecorderService.lastFix;
-        if (!rec) {
-            detail.setText(R.string.idle_hint);
-        } else if (!getSystemService(LocationManager.class).isLocationEnabled()) {
-            detail.setText(R.string.location_off);
-        } else if (fix == null) {
-            detail.setText(getString(R.string.waiting_fix, RecorderService.savedPoints));
-        } else {
-            long ageS = (SystemClock.elapsedRealtimeNanos() - fix.getElapsedRealtimeNanos()) / 1_000_000_000L;
-            detail.setText(getString(R.string.fix_status, RecorderService.savedPoints, ageS,
-                    fix.getAccuracy(), fix.getLatitude(), fix.getLongitude()));
+        show(rowLocation, !locationEnabled()); // can be toggled from the notification shade
+        if (rendered == null || rendered != rec) {
+            if (rendered != null) reloadList(); // a recording started or finished (onResume loads it the first time)
+            rendered = rec;
+            state.setText(rec ? R.string.state_recording : R.string.state_idle);
+            state.setTextColor(getColor(rec ? R.color.stop : R.color.start));
+            show(timer, rec);
+            show(stats, rec);
+            show(gps, rec);
+            hint.setText(rec ? R.string.hint_recording : R.string.hint_idle);
+            toggle.setText(rec ? R.string.finish_button : R.string.start);
+            toggle.setBackgroundTintList(getColorStateList(rec ? R.color.stop : R.color.start));
         }
-        if (rec != wasRecording) {
-            wasRecording = rec;
-            reloadList();
+        if (!rec) return;
+        setText(timer, Format.clock(SystemClock.elapsedRealtime() - RecorderService.startedElapsedMs));
+        setText(stats, getString(R.string.live_stats,
+                Format.distance(RecorderService.distanceM), RecorderService.savedPoints));
+        Location fix = RecorderService.lastFix;
+        if (setText(gps, RecorderService.gpsStatus(this, fix))) {
+            gps.setTextColor(getColor(QUALITY_COLORS[fix == null ? 2 : TrackPoint.quality(fix.getAccuracy())]));
         }
     }
+
+    // ---------- track list ----------
 
     private void reloadList() {
         File[] files = TrackStore.list(this);
         adapter.clear();
         adapter.addAll(files);
+        show(empty, files.length == 0);
         io.execute(() -> {
             for (File f : files) {
                 if (f.equals(RecorderService.currentFile)) continue; // still growing
@@ -198,51 +277,37 @@ public final class MainActivity extends Activity {
 
     private String summarize(List<TrackPoint> points) {
         if (points.isEmpty()) return getString(R.string.empty_track);
-        long minutes = (points.get(points.size() - 1).timeMs - points.get(0).timeMs) / 60_000;
-        return getString(R.string.summary, points.size(), Track.lengthM(points) / 1000, minutes / 60, minutes % 60);
+        return getString(R.string.track_summary,
+                Format.distance(Track.lengthM(points)), Format.duration(Track.durationMs(points)));
     }
 
     private void openMap(File f) {
         startActivity(new Intent(this, MapActivity.class).putExtra(MapActivity.EXTRA_FILE, f.getName()));
     }
 
-    private void showOptions(File f) {
-        boolean active = f.equals(RecorderService.currentFile);
-        CharSequence[] items = active
-                ? new CharSequence[] {getString(R.string.export)}
-                : new CharSequence[] {getString(R.string.export), getString(R.string.delete)};
-        new AlertDialog.Builder(this)
-                .setTitle(Track.title(f.getName()))
-                .setItems(items, (d, which) -> {
-                    if (which == 0) export(f);
-                    else confirmDelete(f);
-                })
-                .show();
+    // ---------- helpers ----------
+
+    private View problem(View header, int rowId, int text, int fixText, Runnable fix) {
+        View row = header.findViewById(rowId);
+        ((TextView) row.findViewById(R.id.problem_text)).setText(text);
+        Button button = row.findViewById(R.id.problem_fix);
+        button.setText(fixText);
+        button.setOnClickListener(v -> fix.run());
+        return row;
     }
 
-    private void export(File f) {
-        io.execute(() -> {
-            int message;
-            try {
-                TrackStore.exportToDownloads(this, f);
-                message = R.string.exported;
-            } catch (IOException e) {
-                message = R.string.export_failed;
-            }
-            int m = message;
-            main.post(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show());
-        });
+    private static void show(View v, boolean visible) {
+        v.setVisibility(visible ? View.VISIBLE : View.GONE);
     }
 
-    private void confirmDelete(File f) {
-        new AlertDialog.Builder(this)
-                .setTitle(Track.title(f.getName()))
-                .setMessage(R.string.delete_confirm)
-                .setPositiveButton(R.string.delete, (d, w) -> {
-                    if (!f.delete()) Toast.makeText(this, R.string.delete_failed, Toast.LENGTH_SHORT).show();
-                    reloadList();
-                })
-                .setNegativeButton(R.string.cancel, null)
-                .show();
+    /** Avoids a relayout when the text did not change; returns whether it changed. */
+    private static boolean setText(TextView v, CharSequence text) {
+        if (TextUtils.equals(v.getText(), text)) return false;
+        v.setText(text);
+        return true;
+    }
+
+    private SharedPreferences prefs() {
+        return getSharedPreferences("ui", MODE_PRIVATE);
     }
 }

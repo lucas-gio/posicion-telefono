@@ -2,40 +2,63 @@
 <resources>
     <string name="app_name">Posición Teléfono</string>
 
-    <string name="start">Iniciar registro</string>
-    <string name="stop">Detener</string>
-    <string name="idle">Detenido</string>
-    <string name="idle_hint">Se guarda un punto cada 10 segundos, aunque la pantalla esté apagada.</string>
-    <string name="recording">● Registrando</string>
-    <string name="waiting_fix">Puntos guardados: %1$d\nBuscando satélites… (al aire libre tarda menos)</string>
-    <string name="fix_status">Puntos guardados: %1$d\nÚltimo fix hace %2$d s · ±%3$.0f m\n%4$.6f, %5$.6f</string>
-    <string name="location_off">⚠ La ubicación del teléfono está apagada.</string>
+    <!-- Main screen -->
+    <string name="state_idle">Listo para grabar</string>
+    <string name="state_recording">● Grabando</string>
+    <string name="start">▶  Empezar a grabar</string>
+    <string name="finish_button">■  Terminar</string>
+    <string name="live_stats">Distancia: %1$s · Puntos: %2$d</string>
+    <string name="hint_idle">Tocá el botón antes de salir. Tu posición se guarda cada 10 segundos.</string>
+    <string name="hint_recording">🔒 Podés bloquear el teléfono y guardarlo: sigue grabando. Para terminar sin desbloquear, tocá «Terminar» en la notificación.</string>
+    <string name="add_tile">＋ Agregar «Grabar recorrido» a los ajustes rápidos</string>
 
-    <string name="battery_hint">Para que Android no corte el registro, dejá que la app use la batería sin restricciones.</string>
-    <string name="allow">Permitir</string>
+    <string name="gps_searching">Buscando satélites… (al aire libre es más rápido)</string>
+    <string name="gps_lost">Sin señal de GPS por ahora (túnel o techo)</string>
+    <string name="gps_good">GPS bueno (±%1$.0f m)</string>
+    <string name="gps_fair">GPS regular (±%1$.0f m)</string>
+    <string name="gps_poor">GPS débil (±%1$.0f m)</string>
 
-    <string name="tracks">Recorridos (mantené apretado para exportar o borrar)</string>
-    <string name="no_tracks">Todavía no hay recorridos.</string>
-    <string name="summary">%2$.2f km · %3$d:%4$02d h · puntos: %1$d</string>
+    <!-- What is missing for a reliable recording -->
+    <string name="problem_permission">Falta el permiso de ubicación precisa.</string>
+    <string name="problem_location_off">La ubicación del teléfono está apagada.</string>
+    <string name="problem_notifications">Notificaciones apagadas: no vas a ver la grabación con el teléfono bloqueado.</string>
+    <string name="problem_battery">Android puede cortar la grabación para ahorrar batería.</string>
+    <string name="fix_permission">Dar permiso</string>
+    <string name="fix_turn_on">Activar</string>
+    <string name="fix_allow">Permitir</string>
+    <string name="need_precise">Para saber por qué calles anduviste hace falta la ubicación PRECISA.\n\nEn Permisos → Ubicación elegí «Permitir solo mientras se usa la app» y activá «Usar ubicación precisa».</string>
+    <string name="open_settings">Abrir ajustes</string>
+    <string name="cancel">Cancelar</string>
+
+    <!-- Track list -->
+    <string name="my_tracks">Mis recorridos</string>
+    <string name="no_tracks">Todavía no grabaste ningún recorrido.</string>
+    <string name="track_summary">%1$s en %2$s</string>
     <string name="recording_now">● grabando ahora</string>
-    <string name="empty_track">Este recorrido no tiene puntos.</string>
+    <string name="empty_track">Sin puntos: el GPS no llegó a ubicarse.</string>
 
-    <string name="export">Guardar CSV y GPX en Descargas</string>
-    <string name="exported">Guardado en Descargas/PosicionTelefono</string>
-    <string name="export_failed">No se pudo exportar.</string>
+    <!-- Map screen -->
+    <string name="map_live">● En vivo · %1$s</string>
+    <string name="legend_good">● preciso</string>
+    <string name="legend_fair">● regular</string>
+    <string name="legend_poor">● impreciso</string>
+    <string name="map_help">Tocá la línea para ver a qué hora pasaste. Pellizcá o tocá dos veces para acercar.</string>
+    <string name="point_info">Pasaste a las %1$s · ±%2$s m · %3$s km/h</string>
+    <string name="export">Guardar en Descargas</string>
+    <string name="exported">Guardado en Descargas/PosicionTelefono (CSV y GPX)</string>
+    <string name="export_failed">No se pudo guardar.</string>
     <string name="delete">Borrar</string>
     <string name="delete_confirm">¿Borrar este recorrido? No se puede deshacer.</string>
     <string name="delete_failed">No se pudo borrar.</string>
-    <string name="cancel">Cancelar</string>
 
-    <string name="need_precise">Para saber por qué calles anduviste hace falta la ubicación PRECISA. En Permisos → Ubicación elegí «Permitir solo mientras se usa la app» y activá «Usar ubicación precisa».</string>
-    <string name="enable_location">Activá la ubicación del teléfono para usar el GPS.</string>
-    <string name="open_settings">Abrir ajustes</string>
+    <!-- Notification (also shown on the lock screen) -->
+    <string name="notif_channel">Grabación de recorrido</string>
+    <string name="notif_title">Grabando recorrido</string>
+    <string name="notif_text">%1$s · %2$s</string>
+    <string name="finish">Terminar</string>
 
-    <string name="map_summary">%2$.2f km · puntos: %1$d\nAzul ≤10 m · naranja ≤25 m · rojo: GPS impreciso. Tocá un punto para ver la hora.</string>
-    <string name="point_info">%1$s · precisión ±%2$s m · %3$s km/h</string>
-
-    <string name="notif_channel">Registro de recorrido</string>
-    <string name="notif_title">Registrando recorrido</string>
-    <string name="notif_text">Tocá para ver el estado</string>
+    <!-- Quick Settings tile -->
+    <string name="tile_label">Grabar recorrido</string>
+    <string name="tile_recording">Grabando</string>
+    <string name="tile_idle">Tocá para empezar</string>
 </resources>

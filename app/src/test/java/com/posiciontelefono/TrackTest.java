@@ -21,7 +21,6 @@ public class TrackTest {
         String name = Track.fileName(1_763_830_800_000L, ZoneId.of("America/Argentina/Buenos_Aires"));
         assertEquals("2025-11-22_14-00-00.csv", name);
         assertTrue(Track.isValidFileName(name));
-        assertEquals("22/11/2025 14:00", Track.title(name));
     }
 
     @Test
@@ -33,7 +32,6 @@ public class TrackTest {
         assertFalse(Track.isValidFileName("2025-11-22_14-00-00.csv/.."));
         assertFalse(Track.isValidFileName("2025-11-22_14-00-00.csv\n"));
         assertFalse(Track.isValidFileName("2025-11-22_14-00-00.gpx"));
-        assertEquals("notes.txt", Track.title("notes.txt"));
     }
 
     @Test
@@ -66,6 +64,13 @@ public class TrackTest {
                 point(2, 0.002, 5));
         assertEquals(Track.distanceM(0, 0, 0.002, 0), Track.lengthM(points), 1e-6);
         assertEquals(0, Track.lengthM(Collections.emptyList()), 0);
+    }
+
+    @Test
+    public void durationSpansFirstToLastFix() {
+        assertEquals(0, Track.durationMs(Collections.emptyList()));
+        assertEquals(0, Track.durationMs(Collections.singletonList(point(5_000, 0, 5))));
+        assertEquals(20_000, Track.durationMs(Arrays.asList(point(1_000, 0, 5), point(21_000, 0, 5))));
     }
 
     @Test

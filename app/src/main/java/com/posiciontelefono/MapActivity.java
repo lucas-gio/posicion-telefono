@@ -1,9 +1,14 @@
 package com.posiciontelefono;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.net.http.HttpResponseCache;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
+import android.view.View;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.io.File;
 import java.io.IOException;
@@ -12,6 +17,8 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public final class MapActivity extends Activity {
 
@@ -19,12 +26,25 @@ public final class MapActivity extends Activity {
     private static final long TILE_DISK_CACHE_BYTES = 50L << 20;
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm:ss", Locale.ROOT);
 
+    private final Handler main = new Handler(Looper.getMainLooper());
+    private final ExecutorService io = Executors.newSingleThreadExecutor();
+    private final Runnable liveRefresh = new Runnable() {
+        @Override
+        public void run() {
+            load(false);
+            main.postDelayed(this, RecorderService.INTERVAL_MS);
+        }
+    };
+
+    private File file;
     private TrackMapView map;
+    private TextView info;
+    private String summary = "";
 
     @Override
-    protected void onCreate(Bundle state) {
-        super.onCreate(state);
-        File file = TrackStore.find(this, getIntent().getStringExtra(EXTRA_FILE));
+    protected void onCreate(Bundle saved) {
+        super.onCreate(saved);
+        file = TrackStore.find(this, getIntent().getStringExtra(EXTRA_FILE));
         if (file == null) {
             finish();
             return;
@@ -37,21 +57,54 @@ public final class MapActivity extends Activity {
             }
         }
         setContentView(R.layout.activity_map);
-        setTitle(Track.title(file.getName()));
+        setTitle(Format.trackTitle(file.getName()));
         map = findViewById(R.id.map);
-        TextView info = findViewById(R.id.info);
+        info = findViewById(R.id.info);
+        map.setOnSelect(p -> info.setText(p == null ? summary : describe(p)));
+        findViewById(R.id.export).setOnClickListener(v -> export());
+        findViewById(R.id.delete).setOnClickListener(v -> confirmDelete());
+        load(true);
+    }
 
-        new Thread(() -> {
+    @Override
+    protected void onResume() {
+        super.onResume();
+        boolean live = isLive();
+        findViewById(R.id.delete).setVisibility(live ? View.GONE : View.VISIBLE);
+        if (live) main.postDelayed(liveRefresh, RecorderService.INTERVAL_MS);
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        main.removeCallbacks(liveRefresh);
+    }
+
+    @Override
+    protected void onDestroy() {
+        main.removeCallbacksAndMessages(null);
+        io.shutdownNow();
+        if (map != null) map.release();
+        super.onDestroy();
+    }
+
+    private boolean isLive() {
+        return file.equals(RecorderService.currentFile);
+    }
+
+    /** Reads the track in the background; only the first load moves the camera. */
+    private void load(boolean fit) {
+        io.execute(() -> {
             List<TrackPoint> points = TrackStore.read(file);
-            String summary = points.isEmpty() ? getString(R.string.empty_track)
-                    : getString(R.string.map_summary, points.size(), Track.lengthM(points) / 1000);
-            runOnUiThread(() -> {
-                if (isDestroyed()) return;
+            String text = points.isEmpty() ? getString(R.string.empty_track)
+                    : getString(R.string.track_summary,
+                            Format.distance(Track.lengthM(points)), Format.duration(Track.durationMs(points)));
+            main.post(() -> {
+                summary = isLive() ? getString(R.string.map_live, text) : text;
                 info.setText(summary);
-                map.setTrack(points);
-                map.setOnSelect(p -> info.setText(p == null ? summary : describe(p)));
+                map.setTrack(points, fit);
             });
-        }, "read-track").start();
+        });
     }
 
     private String describe(TrackPoint p) {
@@ -61,9 +114,28 @@ public final class MapActivity extends Activity {
         return getString(R.string.point_info, time, accuracy, speed);
     }
 
-    @Override
-    protected void onDestroy() {
-        if (map != null) map.release();
-        super.onDestroy();
+    private void export() {
+        io.execute(() -> {
+            int message;
+            try {
+                TrackStore.exportToDownloads(this, file);
+                message = R.string.exported;
+            } catch (IOException e) {
+                message = R.string.export_failed;
+            }
+            int m = message;
+            main.post(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show());
+        });
+    }
+
+    private void confirmDelete() {
+        new AlertDialog.Builder(this)
+                .setMessage(R.string.delete_confirm)
+                .setPositiveButton(R.string.delete, (d, w) -> {
+                    if (file.delete()) finish();
+                    else Toast.makeText(this, R.string.delete_failed, Toast.LENGTH_SHORT).show();
+                })
+                .setNegativeButton(R.string.cancel, null)
+                .show();
     }
 }

@@ -3,4 +3,10 @@
     <color name="start">#2E7D32</color>
     <color name="stop">#C62828</color>
     <color name="icon_background">#1565C0</color>
+    <color name="card">#F1F3F4</color>
+    <color name="warning_card">#FFF3E0</color>
+    <!-- Same colors the map uses for the track -->
+    <color name="quality_good">#1E88E5</color>
+    <color name="quality_fair">#FB8C00</color>
+    <color name="quality_poor">#E53935</color>
 </resources>

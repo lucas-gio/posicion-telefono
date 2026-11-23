@@ -17,8 +17,6 @@ public final class Track {
             DateTimeFormatter.ofPattern("yyyy-MM-dd_HH-mm-ss'.csv'", Locale.ROOT);
     private static final Pattern VALID_NAME = Pattern.compile("\\d{4}-\\d{2}-\\d{2}_\\d{2}-\\d{2}-\\d{2}\\.csv");
     private static final double EARTH_RADIUS_M = 6_371_008.8;
-    /** Fixes worse than this zig-zag around and would inflate the distance. */
-    static final float MAX_ACCURACY_FOR_DISTANCE_M = 30;
 
     private Track() {}
 
@@ -29,13 +27,6 @@ public final class Track {
     /** Whitelist for names coming from outside (Intents, directory listings): blocks path traversal. */
     public static boolean isValidFileName(String name) {
         return name != null && VALID_NAME.matcher(name).matches();
-    }
-
-    /** "2026-11-22_14-05-30.csv" becomes "22/11/2026 14:05". */
-    public static String title(String fileName) {
-        if (!isValidFileName(fileName)) return fileName;
-        return fileName.substring(8, 10) + '/' + fileName.substring(5, 7) + '/' + fileName.substring(0, 4)
-                + ' ' + fileName.substring(11, 13) + ':' + fileName.substring(14, 16);
     }
 
     /** Reads all valid rows, silently skipping the header and damaged lines. */
@@ -58,14 +49,13 @@ public final class Track {
     }
 
     public static double lengthM(List<TrackPoint> points) {
-        double total = 0;
-        TrackPoint prev = null;
-        for (TrackPoint p : points) {
-            if (p.accuracyM > MAX_ACCURACY_FOR_DISTANCE_M) continue;
-            if (prev != null) total += distanceM(prev.lat, prev.lon, p.lat, p.lon);
-            prev = p;
-        }
-        return total;
+        Odometer odometer = new Odometer();
+        for (TrackPoint p : points) odometer.add(p);
+        return odometer.meters();
+    }
+
+    public static long durationMs(List<TrackPoint> points) {
+        return points.size() < 2 ? 0 : points.get(points.size() - 1).timeMs - points.get(0).timeMs;
     }
 
     public static String toGpx(String name, List<TrackPoint> points) {

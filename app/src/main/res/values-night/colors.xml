@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="card">#2B2D30</color>
+    <color name="warning_card">#3E2C12</color>
+</resources>
