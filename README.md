@@ -14,8 +14,9 @@ App Android que guarda tu posición GPS cada 10 segundos y después te muestra e
 - Guarda la hora, la posición, la precisión y la velocidad cada 10 s. Usa solo el GPS, sin mezclar wifi ni antenas.
 - Sigue grabando con el teléfono bloqueado. En la pantalla de bloqueo se ven el tiempo, los km y un botón **Terminar** que no pide PIN.
 - Muestra el recorrido sobre OpenStreetMap, coloreado según la precisión del GPS. Tocá la línea para ver a qué hora pasaste por ahí.
-- Exporta CSV y GPX a `Descargas/PosicionTelefono`.
-- No usa ninguna librería: el APK pesa unos 75 KB. Funciona en Android 12 o más nuevo y está pensada para el Moto G52.
+- Cada recorrido puede llevar un nombre, que le ponés después con **⋮** o desde el mapa. Desde ahí mismo también se borra definitivamente: el archivo desaparece del teléfono.
+- Exporta CSV y GPX a `Descargas/PosicionTelefono`, con el nombre del recorrido en el archivo.
+- No usa ninguna librería: el APK pesa unos 80 KB. Funciona en Android 12 o más nuevo y está pensada para el Moto G52.
 
 ## Instalar
 

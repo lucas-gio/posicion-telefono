@@ -3,6 +3,7 @@ package com.posiciontelefono;
 import android.content.ContentResolver;
 import android.content.ContentValues;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
@@ -57,12 +58,49 @@ final class TrackStore {
         }
     }
 
+    // ---------- names (kept apart from the CSV, so the file format never changes) ----------
+
+    /** The name the user gave the track, or "" if none. */
+    static String label(Context c, File f) {
+        return labels(c).getString(f.getName(), "");
+    }
+
+    static void setLabel(Context c, File f, String raw) {
+        String label = Format.cleanLabel(raw);
+        SharedPreferences.Editor e = labels(c).edit();
+        if (label.isEmpty()) e.remove(f.getName());
+        else e.putString(f.getName(), label);
+        e.apply();
+    }
+
+    /** What the user sees: the name if there is one, otherwise the date. */
+    static String title(Context c, File f) {
+        String label = label(c, f);
+        return label.isEmpty() ? Format.trackTitle(f.getName()) : label;
+    }
+
+    /** Hard delete: the CSV and its name are removed from the phone for good. */
+    static boolean delete(Context c, File f) {
+        if (f.exists() && !f.delete()) return false;
+        labels(c).edit().remove(f.getName()).apply();
+        return true;
+    }
+
+    private static SharedPreferences labels(Context c) {
+        return c.getSharedPreferences("labels", Context.MODE_PRIVATE);
+    }
+
+    // ---------- export ----------
+
     /** Copies the track as CSV and GPX to Downloads/PosicionTelefono (survives uninstalling the app). */
     static void exportToDownloads(Context c, File f) throws IOException {
         String base = f.getName().substring(0, f.getName().length() - 4);
-        write(c, base + ".csv", "text/csv", Files.readAllBytes(f.toPath()));
-        write(c, base + ".gpx", "application/gpx+xml",
-                Track.toGpx(base, read(f)).getBytes(StandardCharsets.UTF_8));
+        String label = label(c, f);
+        String part = Format.fileNamePart(label);
+        String fileBase = part.isEmpty() ? base : base + " - " + part;
+        write(c, fileBase + ".csv", "text/csv", Files.readAllBytes(f.toPath()));
+        write(c, fileBase + ".gpx", "application/gpx+xml",
+                Track.toGpx(label.isEmpty() ? base : label, read(f)).getBytes(StandardCharsets.UTF_8));
     }
 
     private static void write(Context c, String name, String mime, byte[] data) throws IOException {

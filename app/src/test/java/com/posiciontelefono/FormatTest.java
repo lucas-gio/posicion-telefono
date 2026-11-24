@@ -41,4 +41,39 @@ public class FormatTest {
         assertEquals("notes.txt", Format.trackTitle("notes.txt"));
         assertEquals("2026-13-45_99-00-00.csv", Format.trackTitle("2026-13-45_99-00-00.csv")); // passes the regex, not a date
     }
+
+    @Test
+    public void labelIsOneTrimmedLine() {
+        assertEquals("Vuelta por la costanera", Format.cleanLabel("  Vuelta   por la\ncostanera \t"));
+        assertEquals("Ida y vuelta", Format.cleanLabel("Ida\r\ny\u0000vuelta"));
+    }
+
+    @Test
+    public void emptyLabelMeansNoName() {
+        assertEquals("", Format.cleanLabel(null));
+        assertEquals("", Format.cleanLabel("   \n "));
+    }
+
+    @Test
+    public void labelDropsTextDirectionTricks() {
+        // U+202E would show "abc.exe" reversed; it is removed instead of rendered.
+        assertEquals("abcexe.gpx", Format.cleanLabel("abc‮exe.gpx"));
+    }
+
+    @Test
+    public void labelIsCappedWithoutBreakingEmoji() {
+        String bike = "🚲"; // one emoji, two Java chars
+        String label = Format.cleanLabel("a".repeat(59) + bike + "zzz");
+        assertEquals("a".repeat(59) + bike, label);
+        assertEquals(Format.MAX_LABEL, label.codePointCount(0, label.length()));
+    }
+
+    @Test
+    public void fileNamePartIsSafeForDownloads() {
+        assertEquals("Vuelta_ lago_río", Format.fileNamePart("Vuelta: lago/río"));
+        assertEquals("a_b_c_d_e_f_g", Format.fileNamePart("a\\b*c?d\"e<f>g"));
+        assertEquals("oculto", Format.fileNamePart("..oculto.."));
+        assertEquals("", Format.fileNamePart("..."));
+        assertEquals(40, Format.fileNamePart("x".repeat(60)).length());
+    }
 }

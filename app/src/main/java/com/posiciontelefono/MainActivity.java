@@ -28,6 +28,7 @@ import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.ListView;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 
 import java.io.File;
@@ -102,10 +103,15 @@ public final class MainActivity extends Activity {
             public View getView(int position, View convertView, ViewGroup parent) {
                 View v = super.getView(position, convertView, parent);
                 File f = getItem(position);
-                ((TextView) v.findViewById(R.id.title)).setText(Format.trackTitle(f.getName()));
-                String summary = f.equals(RecorderService.currentFile)
+                String label = TrackStore.label(MainActivity.this, f);
+                String date = Format.trackTitle(f.getName());
+                String stats = f.equals(RecorderService.currentFile)
                         ? getString(R.string.recording_now) : SUMMARIES.get(key(f));
-                ((TextView) v.findViewById(R.id.summary)).setText(summary != null ? summary : "…");
+                if (stats == null) stats = "…";
+                ((TextView) v.findViewById(R.id.title)).setText(label.isEmpty() ? date : label);
+                ((TextView) v.findViewById(R.id.summary)).setText(label.isEmpty()
+                        ? stats : getString(R.string.labeled_summary, date, stats));
+                v.findViewById(R.id.more).setOnClickListener(anchor -> showMenu(anchor, f));
                 return v;
             }
         };
@@ -283,6 +289,26 @@ public final class MainActivity extends Activity {
 
     private void openMap(File f) {
         startActivity(new Intent(this, MapActivity.class).putExtra(MapActivity.EXTRA_FILE, f.getName()));
+    }
+
+    private void showMenu(View anchor, File f) {
+        PopupMenu menu = new PopupMenu(this, anchor);
+        menu.getMenu().add(0, R.string.add_name, 0,
+                TrackStore.label(this, f).isEmpty() ? R.string.add_name : R.string.change_name);
+        if (!f.equals(RecorderService.currentFile)) menu.getMenu().add(0, R.string.delete, 1, R.string.delete);
+        menu.setOnMenuItemClickListener(item -> {
+            if (item.getItemId() == R.string.add_name) {
+                TrackDialogs.rename(this, f, adapter::notifyDataSetChanged);
+            } else {
+                String cached = key(f); // the file is gone afterwards, so take its key now
+                TrackDialogs.delete(this, f, () -> {
+                    SUMMARIES.remove(cached);
+                    reloadList();
+                });
+            }
+            return true;
+        });
+        menu.show();
     }
 
     // ---------- helpers ----------

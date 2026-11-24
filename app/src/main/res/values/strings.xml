@@ -8,7 +8,7 @@
     <string name="start">▶  Empezar a grabar</string>
     <string name="finish_button">■  Terminar</string>
     <string name="live_stats">Distancia: %1$s · Puntos: %2$d</string>
-    <string name="hint_idle">Tocá el botón antes de salir. Tu posición se guarda cada 10 segundos.</string>
+    <string name="hint_idle">Tocá el botón antes de salir. Tu posición se guarda cada 10 segundos. Al terminar podés ponerle nombre con ⋮.</string>
     <string name="hint_recording">🔒 Podés bloquear el teléfono y guardarlo: sigue grabando. Para terminar sin desbloquear, tocá «Terminar» en la notificación.</string>
     <string name="add_tile">＋ Agregar «Grabar recorrido» a los ajustes rápidos</string>
 
@@ -36,6 +36,17 @@
     <string name="track_summary">%1$s en %2$s</string>
     <string name="recording_now">● grabando ahora</string>
     <string name="empty_track">Sin puntos: el GPS no llegó a ubicarse.</string>
+    <string name="labeled_summary">%1$s · %2$s</string>
+    <string name="options">Opciones del recorrido</string>
+    <string name="add_name">Ponerle nombre</string>
+    <string name="change_name">Cambiar nombre</string>
+
+    <!-- Name and delete dialogs -->
+    <string name="name_title">Nombre del recorrido</string>
+    <string name="name_hint">Ej.: Vuelta por la costanera</string>
+    <string name="save">Guardar</string>
+    <string name="delete_title">¿Borrar «%1$s»?</string>
+    <string name="delete_forever">Borrar definitivamente</string>
 
     <!-- Map screen -->
     <string name="map_live">● En vivo · %1$s</string>
@@ -44,11 +55,12 @@
     <string name="legend_poor">● impreciso</string>
     <string name="map_help">Tocá la línea para ver a qué hora pasaste. Pellizcá o tocá dos veces para acercar.</string>
     <string name="point_info">Pasaste a las %1$s · ±%2$s m · %3$s km/h</string>
-    <string name="export">Guardar en Descargas</string>
+    <string name="name_button">✎ Nombre</string>
+    <string name="export">⤓ Exportar</string>
     <string name="exported">Guardado en Descargas/PosicionTelefono (CSV y GPX)</string>
     <string name="export_failed">No se pudo guardar.</string>
     <string name="delete">Borrar</string>
-    <string name="delete_confirm">¿Borrar este recorrido? No se puede deshacer.</string>
+    <string name="delete_confirm">Se elimina del teléfono para siempre (baja física): el recorrido y su nombre. No se puede recuperar.\n\nLas copias que hayas exportado a Descargas no se tocan.</string>
     <string name="delete_failed">No se pudo borrar.</string>
 
     <!-- Notification (also shown on the lock screen) -->

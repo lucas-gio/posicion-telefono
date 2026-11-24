@@ -1,7 +1,6 @@
 package com.posiciontelefono;
 
 import android.app.Activity;
-import android.app.AlertDialog;
 import android.net.http.HttpResponseCache;
 import android.os.Bundle;
 import android.os.Handler;
@@ -57,12 +56,14 @@ public final class MapActivity extends Activity {
             }
         }
         setContentView(R.layout.activity_map);
-        setTitle(Format.trackTitle(file.getName()));
+        setTitle(TrackStore.title(this, file));
         map = findViewById(R.id.map);
         info = findViewById(R.id.info);
         map.setOnSelect(p -> info.setText(p == null ? summary : describe(p)));
+        findViewById(R.id.rename).setOnClickListener(v ->
+                TrackDialogs.rename(this, file, () -> setTitle(TrackStore.title(this, file))));
         findViewById(R.id.export).setOnClickListener(v -> export());
-        findViewById(R.id.delete).setOnClickListener(v -> confirmDelete());
+        findViewById(R.id.delete).setOnClickListener(v -> TrackDialogs.delete(this, file, this::finish));
         load(true);
     }
 
@@ -126,16 +127,5 @@ public final class MapActivity extends Activity {
             int m = message;
             main.post(() -> Toast.makeText(this, m, Toast.LENGTH_LONG).show());
         });
-    }
-
-    private void confirmDelete() {
-        new AlertDialog.Builder(this)
-                .setMessage(R.string.delete_confirm)
-                .setPositiveButton(R.string.delete, (d, w) -> {
-                    if (file.delete()) finish();
-                    else Toast.makeText(this, R.string.delete_failed, Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton(R.string.cancel, null)
-                .show();
     }
 }
